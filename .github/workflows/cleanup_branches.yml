@@ -13,8 +13,16 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      # Checkout the calling repository if needed (optional)
+      - name: Checkout calling repository
         uses: actions/checkout@v3
+
+      # Checkout the shared workflows repository where the cleanup script is stored
+      - name: Checkout shared repository
+        uses: actions/checkout@v3
+        with:
+          repository: ETrigosNivelics/shared-workflows
+          path: shared
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -29,7 +37,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ "${{ inputs.dryRun }}" == "true" ]; then
-            python .github/scripts/cleanup_branches.py --dry-run
+            python shared/.github/scripts/cleanup_branches.py --dry-run
           else
-            python .github/scripts/cleanup_branches.py
+            python shared/.github/scripts/cleanup_branches.py
           fi
