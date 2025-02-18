@@ -1,0 +1,38 @@
+name: Cleanup Branches (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      dryRun:
+        description: 'Run in dry-run mode'
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      GITHUB_TOKEN:
+        required: true
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
+
+      - name: Install dependencies
+        run: pip install PyGithub
+
+      - name: Execute cleanup script
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ inputs.dryRun }}" == "true" ]; then
+            python .github/scripts/cleanup_branches.py --dry-run
+          else
+            python .github/scripts/cleanup_branches.py
+          fi
