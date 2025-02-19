@@ -3,18 +3,20 @@ import os
 from datetime import datetime, timedelta, timezone
 from github import Github
 
-def main(dry_run):
+def main(dry_run, offset_days):
     token = os.environ.get("GITHUB_TOKEN")
     repo_name = os.environ.get("GITHUB_REPOSITORY")  # e.g., "usuario/repo"
     g = Github(token)
     repo = g.get_repo(repo_name)
 
     main_branch = repo.default_branch
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=30)  # ✅ Use timezone-aware datetime
+    # Calculate cutoff date using the offset_days parameter
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=offset_days)
 
     branches_to_delete = []
 
-    print('Running from Shared Workflows Repository')
+    print("Running from Shared Workflows Repository")
+    print(f"Using offset days: {offset_days} -> cutoff_date: {cutoff_date}")
 
     for branch in repo.get_branches():
         print(':::' * 30)
@@ -56,5 +58,6 @@ def main(dry_run):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Run in simulation mode")
+    parser.add_argument("--days", type=int, default=30, help="Number of days of inactivity required to delete a branch")
     args = parser.parse_args()
-    main(args.dry_run)
+    main(args.dry_run, args.days)
