@@ -8,6 +8,11 @@ on:
         required: false
         type: boolean
         default: true
+      months:
+        description: 'Number of months of inactivity'
+        required: true
+        type: number
+        default: 6
 
 jobs:
   cleanup:
