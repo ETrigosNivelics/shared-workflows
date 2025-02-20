@@ -15,7 +15,8 @@ def main(dry_run, offset_months):
 
     main_branch = repo.default_branch
     # Calculate cutoff date using the offset_months parameter
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=offset_months)
+    # cutoff_date = datetime.now(timezone.utc) - timedelta(days=offset_months * 30)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=1)
 
     branches_to_delete = []
 
