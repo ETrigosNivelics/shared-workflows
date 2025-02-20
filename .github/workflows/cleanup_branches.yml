@@ -36,8 +36,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ inputs.dryRun }}" == "true" ]; then
-            python shared/.github/scripts/cleanup_branches.py --dry-run
-          else
-            python shared/.github/scripts/cleanup_branches.py
+          args=""
+          if [ "${{ inputs.months }}" != "0" ]; then
+            args="$args --months ${{ inputs.months }}"
           fi
+          if [ "${{ inputs.dryRun }}" == "true" ]; then
+            args="$args --dry-run"
+          fi
+          echo "Executing: python shared/.github/scripts/cleanup_branches.py $args"
+          python shared/.github/scripts/cleanup_branches.py $args

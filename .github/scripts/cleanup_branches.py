@@ -3,20 +3,24 @@ import os
 from datetime import datetime, timedelta, timezone
 from github import Github
 
-def main(dry_run, offset_days):
+def main(dry_run, offset_months):
+    if offset_months < 6:
+        print("Error: The minimum number of months of inactivity allowed to delete a branch is 6 months.")
+        return False
+
     token = os.environ.get("GITHUB_TOKEN")
     repo_name = os.environ.get("GITHUB_REPOSITORY")  # e.g., "usuario/repo"
     g = Github(token)
     repo = g.get_repo(repo_name)
 
     main_branch = repo.default_branch
-    # Calculate cutoff date using the offset_days parameter
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=offset_days)
+    # Calculate cutoff date using the offset_months parameter
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=offset_months)
 
     branches_to_delete = []
 
     print("Running from Shared Workflows Repository")
-    print(f"Using offset days: {offset_days} -> cutoff_date: {cutoff_date}")
+    print(f"Using offset days: {offset_months} -> cutoff_date: {cutoff_date}")
 
     for branch in repo.get_branches():
         print(':::' * 30)
@@ -58,6 +62,6 @@ def main(dry_run, offset_days):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--dry-run", action="store_true", help="Run in simulation mode")
-    parser.add_argument("--days", type=int, default=30, help="Number of days of inactivity required to delete a branch")
+    parser.add_argument("--months", type=int, default=6, help="Number of months of inactivity required to delete a branch")
     args = parser.parse_args()
-    main(args.dry_run, args.days)
+    main(args.dry_run, args.months)
