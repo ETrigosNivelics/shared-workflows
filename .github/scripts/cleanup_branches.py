@@ -3,66 +3,84 @@ import os
 from datetime import datetime, timedelta, timezone
 from github import Github
 
-def main(dry_run, offset_months):
-    if offset_months < 6:
-        print("Error: The minimum number of months of inactivity allowed to delete a branch is 6 months.")
-        return False
 
-    token = os.environ.get("GITHUB_TOKEN")
-    repo_name = os.environ.get("GITHUB_REPOSITORY")  # e.g., "usuario/repo"
-    g = Github(token)
-    repo = g.get_repo(repo_name)
+def get_github_repo():
+    """Retrieve GitHub repository using the provided token."""
+    token = os.getenv("GITHUB_TOKEN")
+    repo_name = os.getenv("GITHUB_REPOSITORY")  # Expected format: "user/repo"
 
-    main_branch = repo.default_branch
-    # Calculate cutoff date using the offset_months parameter
-    # cutoff_date = datetime.now(timezone.utc) - timedelta(days=offset_months * 30)
-    cutoff_date = datetime.now(timezone.utc) - timedelta(days=1)
+    if not token:
+        raise ValueError("Error: GITHUB_TOKEN environment variable is not set.")
 
-    branches_to_delete = []
+    if not repo_name:
+        raise ValueError("Error: GITHUB_REPOSITORY environment variable is not set.")
 
-    print("Running from Shared Workflows Repository")
-    print(f"Using offset days: {offset_months} -> cutoff_date: {cutoff_date}")
+    github_client = Github(token)
+    return github_client.get_repo(repo_name)
+
+
+def get_cutoff_date(months: int) -> datetime:
+    """Calculate the cutoff date for branch deletion based on inactivity."""
+    return datetime.now(timezone.utc) - timedelta(days=months * 30)
+
+
+def get_stale_branches(repo, cutoff_date, excluded_branches):
+    """Retrieve branches that have been inactive beyond the cutoff date."""
+    stale_branches = []
 
     for branch in repo.get_branches():
-        print(':::' * 30)
-        print('branch:::', branch)
-        print(':::' * 30)
-        
-        if branch.name in [main_branch, "develop"]:  # Keep important branches
+        if branch.name in excluded_branches:
             continue
 
-        # Check if branch is merged
-        pr_list = repo.get_pulls(state='closed', base=main_branch, head=f"{repo.owner.login}:{branch.name}")
-        merged = any(pr.is_merged() for pr in pr_list)
-        if not merged:
-            continue
-
-        # Check inactivity
         commit = repo.get_commit(branch.commit.sha)
-        commit_date = commit.commit.author.date  # This is already timezone-aware
+        commit_date = commit.commit.author.date  # Already timezone-aware
 
-        print(':::' * 30)
-        print('commit_date:::', commit_date)
-        print(':::' * 30)
+        print(f"Checking branch '{branch.name}' | Last commit: {commit_date}")
 
-        if commit_date > cutoff_date:
-            continue
+        if commit_date <= cutoff_date:
+            stale_branches.append(branch.name)
 
-        branches_to_delete.append(branch.name)
+    return stale_branches
+
+
+def delete_branches(repo, branches, dry_run: bool):
+    """Delete branches if not in dry-run mode, otherwise print branches to be deleted."""
+    if not branches:
+        print("No branches meet the criteria for deletion.")
+        return
 
     if dry_run:
-        print("Dry-run: The following branches would be deleted:")
-        for b in branches_to_delete:
-            print(f"- {b}")
+        print("Dry-run mode: The following branches would be deleted:")
+        for branch in branches:
+            print(f"- {branch}")
     else:
-        for b in branches_to_delete:
-            ref = repo.get_git_ref(f"heads/{b}")
-            ref.delete()
-            print(f"Deleted branch: {b}")
+        for branch in branches:
+            repo.get_git_ref(f"heads/{branch}").delete()
+            print(f"Deleted branch: {branch}")
+
+
+def main(dry_run: bool, offset_months: int):
+    """Main function to execute the branch cleanup process."""
+    if offset_months < 6:
+        print("Error: The minimum inactivity period required is 6 months.")
+        return
+
+    print(f"Running GitHub branch cleanup | Offset months: {offset_months}")
+
+    repo = get_github_repo()
+    excluded_branches = {repo.default_branch, "develop", "stage"}
+
+    cutoff_date = get_cutoff_date(offset_months)
+    print(f"Cutoff date: {cutoff_date}")
+
+    stale_branches = get_stale_branches(repo, cutoff_date, excluded_branches)
+    delete_branches(repo, stale_branches, dry_run)
+
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--dry-run", action="store_true", help="Run in simulation mode")
-    parser.add_argument("--months", type=int, default=6, help="Number of months of inactivity required to delete a branch")
+    parser = argparse.ArgumentParser(description="Delete inactive branches from a GitHub repository.")
+    parser.add_argument("--dry-run", action="store_true", help="Simulate the deletion process without making changes.")
+    parser.add_argument("--months", type=int, default=6, help="Months of inactivity required before deletion.")
+    
     args = parser.parse_args()
     main(args.dry_run, args.months)
